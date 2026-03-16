@@ -81,24 +81,40 @@
             <section class="page" id="page-project">
                 <button class="btn btn-ghost back-btn" id="backBtn">← Quay lại</button>
                 <div class="project-header" id="projectHeader"></div>
+
+                <!-- Import MD Zone - always visible -->
+                <div class="import-zone" id="importZone">
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-zone-icon">📂</div>
+                        <div class="drop-zone-text">Kéo thả file <strong>.md</strong> vào đây hoặc</div>
+                        <label class="btn btn-primary" style="margin-top:10px;cursor:pointer">
+                            📂 Chọn file Markdown
+                            <input type="file" accept=".md,.txt,.markdown" id="mdFileInput" hidden>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="tabs">
                     <button class="tab active" data-tab="report">📄 Báo cáo HTML</button>
-                    <button class="tab" data-tab="markdown">📝 Markdown</button>
+                    <button class="tab" data-tab="md-viewer">📖 Xem Markdown</button>
+                    <button class="tab" data-tab="markdown">✏️ Sửa Markdown</button>
                     <button class="tab" data-tab="project-tasks">✅ Nhiệm vụ</button>
                 </div>
                 <div class="tab-content active" id="tab-report">
                     <div class="report-actions">
-                        <button class="btn btn-outline" id="printReportBtn">🖨️ In báo cáo</button>
+                        <button class="btn btn-outline" id="printReportBtn">🖨️ In báo cáo HTML</button>
                     </div>
                     <div class="report-container" id="reportContainer"></div>
                 </div>
+                <div class="tab-content" id="tab-md-viewer">
+                    <div class="report-actions">
+                        <button class="btn btn-outline" id="printMdBtn">🖨️ In Markdown gốc</button>
+                    </div>
+                    <div class="md-viewer-container" id="mdViewerContainer"></div>
+                </div>
                 <div class="tab-content" id="tab-markdown">
                     <div class="md-actions">
-                        <label class="btn btn-outline" id="importMdBtn">
-                            📂 Import file .md
-                            <input type="file" accept=".md,.txt,.markdown" id="mdFileInput" hidden>
-                        </label>
-                        <button class="btn btn-outline" id="extractTasksBtn">🔄 Trích xuất nhiệm vụ</button>
+                        <button class="btn btn-outline" id="extractTasksBtn">🔄 Trích xuất nhiệm vụ từ MD</button>
                     </div>
                     <textarea class="md-editor" id="mdEditor"
                         placeholder="Paste hoặc import nội dung Markdown tại đây..."></textarea>

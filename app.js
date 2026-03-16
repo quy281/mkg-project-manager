@@ -193,6 +193,8 @@ function renderProjectDetail() {
   const p = state.currentProject;
   if (!p) return;
 
+  updateImportZone();
+
   document.getElementById('projectHeader').innerHTML = `
     <h2>${esc(p.name)}</h2>
     <p>${esc(p.description || '')}</p>
@@ -208,8 +210,9 @@ function renderProjectDetail() {
     </div>
   `;
 
-  // Render tabs
+  // Render all tabs
   renderReport();
+  renderMdViewer();
   renderMdEditor();
   renderProjectTasks();
 }
@@ -225,15 +228,53 @@ function renderReport() {
   const p = state.currentProject;
   const md = p.markdown || '';
   if (!md) {
-    document.getElementById('reportContainer').innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><div class="empty-state-text">Chưa có nội dung Markdown. Chuyển sang tab "Markdown" để import.</div></div>`;
+    document.getElementById('reportContainer').innerHTML = `<div class="empty-state"><div class="empty-state-icon">📄</div><div class="empty-state-text">Chưa có nội dung Markdown. Kéo thả file .md vào vùng import phía trên!</div></div>`;
     return;
   }
   document.getElementById('reportContainer').innerHTML = marked.parse(md);
 }
 
+// ===================== RENDER: MD VIEWER =====================
+function renderMdViewer() {
+  const p = state.currentProject;
+  const md = p.markdown || '';
+  if (!md) {
+    document.getElementById('mdViewerContainer').innerHTML = `<div class="empty-state"><div class="empty-state-icon">📖</div><div class="empty-state-text">Chưa có nội dung. Kéo thả file .md vào vùng import phía trên!</div></div>`;
+    return;
+  }
+  // Render raw markdown with syntax highlighting per line
+  const lines = md.split('\n');
+  const html = lines.map(line => {
+    const trimmed = line.trim();
+    if (!trimmed) return '<div class="md-line md-line-empty"></div>';
+    if (/^#{1}\s/.test(trimmed)) return `<div class="md-line md-line-h1">${esc(trimmed)}</div>`;
+    if (/^#{2}\s/.test(trimmed)) return `<div class="md-line md-line-h2">${esc(trimmed)}</div>`;
+    if (/^#{3,}\s/.test(trimmed)) return `<div class="md-line md-line-h3">${esc(trimmed)}</div>`;
+    if (/^---+$/.test(trimmed)) return '<div class="md-line md-line-hr"></div>';
+    if (/^[-*]\s*\[x\]/.test(trimmed)) return `<div class="md-line md-line-checklist-done">✅ ${esc(trimmed)}</div>`;
+    if (/^[-*]\s*\[ \]/.test(trimmed)) return `<div class="md-line md-line-checklist">⬜ ${esc(trimmed)}</div>`;
+    if (/^[-*]\s*\[\/\]/.test(trimmed)) return `<div class="md-line md-line-checklist">🔄 ${esc(trimmed)}</div>`;
+    if (/^>/.test(trimmed)) return `<div class="md-line md-line-blockquote">${esc(trimmed)}</div>`;
+    if (/^[-*]\s/.test(trimmed)) return `<div class="md-line md-line-bullet">${esc(line)}</div>`;
+    if (/^\d+\.\s/.test(trimmed)) return `<div class="md-line md-line-bullet">${esc(line)}</div>`;
+    return `<div class="md-line">${esc(line)}</div>`;
+  }).join('');
+  document.getElementById('mdViewerContainer').innerHTML = html;
+}
+
 // ===================== RENDER: MD EDITOR =====================
 function renderMdEditor() {
   document.getElementById('mdEditor').value = state.currentProject?.markdown || '';
+}
+
+// Toggle import zone size
+function updateImportZone() {
+  const zone = document.getElementById('importZone');
+  if (zone && state.currentProject?.markdown) {
+    zone.classList.add('has-content');
+  } else if (zone) {
+    zone.classList.remove('has-content');
+  }
 }
 
 // ===================== RENDER: PROJECT TASKS =====================
@@ -461,8 +502,8 @@ function editTaskModal(id) {
   openModal('Sửa nhiệm vụ', `
     <div class="form-group"><label class="form-label">Tiêu đề</label><input class="form-input" id="f_taskTitle" value="${esc(t.title)}"></div>
     <div class="form-group"><label class="form-label">Người phụ trách</label><select class="form-select" id="f_taskAssignee"><option value="">-- Chọn --</option>${staffOpts}</select></div>
-    <div class="form-group"><label class="form-label">Ưu tiên</label><select class="form-select" id="f_taskPriority"><option value="medium" ${t.priority==='medium'?'selected':''}>Medium</option><option value="high" ${t.priority==='high'?'selected':''}>High</option><option value="low" ${t.priority==='low'?'selected':''}>Low</option></select></div>
-    <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="f_taskStatus"><option value="todo" ${t.status==='todo'?'selected':''}>To Do</option><option value="doing" ${t.status==='doing'?'selected':''}>Doing</option><option value="done" ${t.status==='done'?'selected':''}>Done</option></select></div>
+    <div class="form-group"><label class="form-label">Ưu tiên</label><select class="form-select" id="f_taskPriority"><option value="medium" ${t.priority === 'medium' ? 'selected' : ''}>Medium</option><option value="high" ${t.priority === 'high' ? 'selected' : ''}>High</option><option value="low" ${t.priority === 'low' ? 'selected' : ''}>Low</option></select></div>
+    <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="f_taskStatus"><option value="todo" ${t.status === 'todo' ? 'selected' : ''}>To Do</option><option value="doing" ${t.status === 'doing' ? 'selected' : ''}>Doing</option><option value="done" ${t.status === 'done' ? 'selected' : ''}>Done</option></select></div>
     <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="f_taskDeadline" value="${t.deadline || ''}"></div>
     <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveTask('${id}')">Lưu</button></div>
   `);
@@ -539,6 +580,8 @@ function handleMdImport(file) {
     await updateRecord('projects', state.currentProject.id, { markdown: content });
     state.currentProject.markdown = content;
     renderReport();
+    renderMdViewer();
+    updateImportZone();
   };
   reader.readAsText(file);
 }
@@ -548,6 +591,8 @@ async function saveMd() {
   await updateRecord('projects', state.currentProject.id, { markdown: md });
   state.currentProject.markdown = md;
   renderReport();
+  renderMdViewer();
+  updateImportZone();
   // Visual feedback
   const btn = document.getElementById('saveMdBtn');
   btn.textContent = '✅ Đã lưu!';
@@ -590,27 +635,44 @@ async function extractTasks() {
   renderProjectTasks();
 }
 
-// ===================== PRINT REPORT =====================
+// ===================== PRINT =====================
+const PRINT_STYLES = `
+  body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a2e; line-height: 1.7; max-width: 800px; margin: 0 auto; }
+  h1 { border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
+  h2 { color: #2d3748; margin-top: 28px; }
+  h3 { color: #4a5568; }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; }
+  th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; font-size: 0.9rem; }
+  th { background: #f7fafc; font-weight: 600; }
+  code { background: #edf2f7; padding: 2px 4px; border-radius: 3px; font-size: 0.85em; }
+  pre { background: #f7f7f7; color: #333; padding: 16px; border-radius: 8px; overflow-x: auto; border: 1px solid #e2e8f0; }
+  pre code { background: none; color: inherit; }
+  blockquote { border-left: 4px solid #6c5ce7; padding: 12px 20px; margin: 16px 0; background: #f0f0ff; }
+  hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+  @media print { body { padding: 20px; } }
+`;
+
 function printReport() {
   const content = document.getElementById('reportContainer').innerHTML;
   const printWin = window.open('', '_blank');
   printWin.document.write(`
-    <!DOCTYPE html><html><head><title>${esc(state.currentProject?.name || 'Báo cáo')} — Báo cáo</title>
+    <!DOCTYPE html><html><head><title>${esc(state.currentProject?.name || 'Báo cáo')} — Báo cáo HTML</title>
+    <style>${PRINT_STYLES}</style></head><body>${content}</body></html>
+  `);
+  printWin.document.close();
+  setTimeout(() => printWin.print(), 500);
+}
+
+function printMd() {
+  const md = state.currentProject?.markdown || '';
+  if (!md) return alert('Chưa có nội dung Markdown!');
+  const printWin = window.open('', '_blank');
+  printWin.document.write(`
+    <!DOCTYPE html><html><head><title>${esc(state.currentProject?.name || 'Markdown')} — Markdown gốc</title>
     <style>
-      body { font-family: 'Inter', sans-serif; padding: 40px; color: #1a1a2e; line-height: 1.7; max-width: 800px; margin: 0 auto; }
-      h1 { border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; }
-      h2 { color: #2d3748; margin-top: 28px; }
-      h3 { color: #4a5568; }
-      table { width: 100%; border-collapse: collapse; margin: 16px 0; }
-      th, td { border: 1px solid #e2e8f0; padding: 8px 12px; text-align: left; font-size: 0.9rem; }
-      th { background: #f7fafc; font-weight: 600; }
-      code { background: #edf2f7; padding: 2px 4px; border-radius: 3px; font-size: 0.85em; }
-      pre { background: #1a202c; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; }
-      pre code { background: none; color: inherit; }
-      blockquote { border-left: 4px solid #6c5ce7; padding: 12px 20px; margin: 16px 0; background: #f0f0ff; }
-      hr { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
-      @media print { body { padding: 20px; } }
-    </style></head><body>${content}</body></html>
+      body { font-family: 'Consolas', 'Fira Code', monospace; padding: 40px; color: #1a1a2e; line-height: 1.8; max-width: 900px; margin: 0 auto; font-size: 13px; white-space: pre-wrap; }
+      @media print { body { padding: 16px; font-size: 11px; } }
+    </style></head><body>${esc(md)}</body></html>
   `);
   printWin.document.close();
   setTimeout(() => printWin.print(), 500);
@@ -655,8 +717,20 @@ function setupEvents() {
   // Extract tasks
   document.getElementById('extractTasksBtn').addEventListener('click', extractTasks);
 
-  // Print report
+  // Print report & MD
   document.getElementById('printReportBtn').addEventListener('click', printReport);
+  document.getElementById('printMdBtn').addEventListener('click', printMd);
+
+  // Drop zone drag-drop
+  const dropZone = document.getElementById('dropZone');
+  dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+  dropZone.addEventListener('dragleave', () => { dropZone.classList.remove('dragover'); });
+  dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    const file = e.dataTransfer.files[0];
+    if (file && state.currentProject) handleMdImport(file);
+  });
 
   // Add task
   document.getElementById('addTaskBtn').addEventListener('click', addTaskModal);
@@ -680,17 +754,6 @@ function setupEvents() {
   // Keyboard
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') closeModal();
-  });
-
-  // Drag-drop MD on editor
-  const editor = document.getElementById('mdEditor');
-  editor.addEventListener('dragover', (e) => { e.preventDefault(); editor.style.borderColor = 'var(--accent)'; });
-  editor.addEventListener('dragleave', () => { editor.style.borderColor = ''; });
-  editor.addEventListener('drop', (e) => {
-    e.preventDefault();
-    editor.style.borderColor = '';
-    const file = e.dataTransfer.files[0];
-    if (file) handleMdImport(file);
   });
 }
 
