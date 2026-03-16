@@ -130,13 +130,19 @@
 
             <!-- Task Board Page -->
             <section class="page" id="page-tasks">
-                <div class="board-filters">
-                    <select id="boardFilterProject" class="select-input">
-                        <option value="all">Tất cả dự án</option>
-                    </select>
-                    <select id="boardFilterAssignee" class="select-input">
-                        <option value="all">Tất cả nhân viên</option>
-                    </select>
+                <div class="board-toolbar">
+                    <div class="board-filters">
+                        <select id="boardFilterProject" class="select-input">
+                            <option value="all">Tất cả dự án</option>
+                        </select>
+                        <select id="boardFilterAssignee" class="select-input">
+                            <option value="all">Tất cả nhân viên</option>
+                        </select>
+                    </div>
+                    <div class="view-toggle">
+                        <button class="btn btn-sm btn-outline active" id="viewKanban" title="Kanban">▦ Kanban</button>
+                        <button class="btn btn-sm btn-outline" id="viewList" title="List">☰ List</button>
+                    </div>
                 </div>
                 <div class="kanban-board" id="kanbanBoard">
                     <div class="kanban-col" data-status="todo">
@@ -155,6 +161,7 @@
                         <div class="kanban-cards" id="cardsDone"></div>
                     </div>
                 </div>
+                <div class="list-view" id="listView" style="display:none"></div>
             </section>
 
             <!-- Staff Page -->

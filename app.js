@@ -12,6 +12,8 @@ let state = {
   staff: [],
   currentProject: null,
   currentPage: 'dashboard',
+  boardView: 'kanban',  // 'kanban' or 'list'
+  dragTaskId: null,
 };
 
 // ===================== INIT =====================
@@ -134,7 +136,7 @@ function navigate(page) {
   document.getElementById('newProjectBtn').style.display = page === 'dashboard' ? '' : 'none';
 
   if (page === 'dashboard') renderDashboard();
-  if (page === 'tasks') renderKanban();
+  if (page === 'tasks') renderTaskBoard();
   if (page === 'staff') renderStaff();
 
   // Close mobile sidebar
@@ -317,12 +319,21 @@ async function cycleTaskStatus(id) {
   renderKanban();
 }
 
-// ===================== RENDER: KANBAN =====================
-function renderKanban() {
-  const filterProject = document.getElementById('boardFilterProject')?.value || 'all';
-  const filterAssignee = document.getElementById('boardFilterAssignee')?.value || 'all';
+// ===================== TASK BOARD (wrapper) =====================
+function renderTaskBoard() {
+  populateBoardFilters();
+  if (state.boardView === 'kanban') {
+    document.getElementById('kanbanBoard').style.display = '';
+    document.getElementById('listView').style.display = 'none';
+    renderKanban();
+  } else {
+    document.getElementById('kanbanBoard').style.display = 'none';
+    document.getElementById('listView').style.display = '';
+    renderListView();
+  }
+}
 
-  // Populate filter dropdowns
+function populateBoardFilters() {
   const projSelect = document.getElementById('boardFilterProject');
   if (projSelect) {
     const val = projSelect.value;
@@ -338,10 +349,20 @@ function renderKanban() {
       assignees.map(a => `<option value="${a}">${esc(a)}</option>`).join('');
     assignSelect.value = val;
   }
+}
 
+function getFilteredTasks() {
+  const filterProject = document.getElementById('boardFilterProject')?.value || 'all';
+  const filterAssignee = document.getElementById('boardFilterAssignee')?.value || 'all';
   let tasks = [...state.tasks];
   if (filterProject !== 'all') tasks = tasks.filter(t => t.project === filterProject);
   if (filterAssignee !== 'all') tasks = tasks.filter(t => t.assignee === filterAssignee);
+  return tasks;
+}
+
+// ===================== RENDER: KANBAN (drag-drop) =====================
+function renderKanban() {
+  const tasks = getFilteredTasks();
 
   ['todo', 'doing', 'done'].forEach(status => {
     const col = tasks.filter(t => t.status === status);
@@ -353,8 +374,9 @@ function renderKanban() {
     container.innerHTML = col.length === 0 ? `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:0.8rem">Trống</div>` :
       col.map(t => {
         const proj = state.projects.find(p => p.id === t.project);
+        const hasDetail = t.description || t.aiPrompt;
         return `
-        <div class="kanban-card" onclick="editTaskModal('${t.id}')">
+        <div class="kanban-card" draggable="true" data-taskid="${t.id}" onclick="editTaskModal('${t.id}')">
           <div class="kanban-card-title">${esc(t.title)}</div>
           <div class="kanban-card-meta">
             ${proj ? `<span class="kanban-card-badge">📁 ${esc(proj.name)}</span>` : ''}
@@ -362,6 +384,11 @@ function renderKanban() {
             ${t.priority ? `<span class="kanban-card-badge badge-${t.priority}">${t.priority}</span>` : ''}
             ${t.deadline ? `<span class="kanban-card-badge">📅 ${t.deadline}</span>` : ''}
           </div>
+          ${hasDetail ? `<button class="task-detail-toggle" onclick="event.stopPropagation();toggleDetail(this)">▸ Xem chi tiết</button>
+          <div class="task-detail" style="display:none">
+            ${t.description ? `<div class="task-detail-section"><div class="task-detail-label">📋 Hướng dẫn</div><div class="task-detail-content">${esc(t.description)}</div></div>` : ''}
+            ${t.aiPrompt ? `<div class="task-detail-section"><div class="task-detail-label">🤖 AI Prompt</div><div class="task-detail-content prompt">${esc(t.aiPrompt)}</div></div>` : ''}
+          </div>` : ''}
           <div class="kanban-card-actions">
             ${status !== 'todo' ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();moveTask('${t.id}','${status === 'doing' ? 'todo' : 'doing'}')">←</button>` : ''}
             ${status !== 'done' ? `<button class="btn btn-sm btn-ghost" onclick="event.stopPropagation();moveTask('${t.id}','${status === 'todo' ? 'doing' : 'done'}')">→</button>` : ''}
@@ -369,11 +396,98 @@ function renderKanban() {
         </div>`;
       }).join('');
   });
+
+  // Attach drag events to cards
+  document.querySelectorAll('.kanban-card[draggable]').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      state.dragTaskId = card.dataset.taskid;
+      card.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      state.dragTaskId = null;
+      document.querySelectorAll('.kanban-col').forEach(c => c.classList.remove('drag-over'));
+    });
+  });
+
+  // Attach drop events to columns
+  document.querySelectorAll('.kanban-col').forEach(col => {
+    col.addEventListener('dragover', (e) => { e.preventDefault(); col.classList.add('drag-over'); });
+    col.addEventListener('dragleave', () => col.classList.remove('drag-over'));
+    col.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      col.classList.remove('drag-over');
+      if (state.dragTaskId) {
+        const newStatus = col.dataset.status;
+        await moveTask(state.dragTaskId, newStatus);
+      }
+    });
+  });
+}
+
+function toggleDetail(btn) {
+  const detail = btn.nextElementSibling;
+  if (detail.style.display === 'none') {
+    detail.style.display = '';
+    btn.textContent = '▾ Ẩn chi tiết';
+  } else {
+    detail.style.display = 'none';
+    btn.textContent = '▸ Xem chi tiết';
+  }
+}
+
+// ===================== RENDER: LIST VIEW =====================
+function renderListView() {
+  const tasks = getFilteredTasks();
+  const container = document.getElementById('listView');
+  if (!container) return;
+
+  if (tasks.length === 0) {
+    container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📌</div><div class="empty-state-text">Chưa có nhiệm vụ nào.</div></div>`;
+    return;
+  }
+
+  const statusLabels = { todo: { icon: '🔵', label: 'To Do' }, doing: { icon: '🟡', label: 'Doing' }, done: { icon: '🟢', label: 'Done' } };
+
+  let html = `<div class="list-header-row"><div></div><div>Nhiệm vụ</div><div>Dự án</div><div>Nhân viên</div><div>Deadline</div><div>Ưu tiên</div></div>`;
+
+  ['todo', 'doing', 'done'].forEach(status => {
+    const col = tasks.filter(t => t.status === status);
+    if (col.length === 0) return;
+    const { icon, label } = statusLabels[status];
+    html += `<div class="list-group">
+      <div class="list-group-header">${icon} ${label} <span style="color:var(--text-muted);font-weight:400">(${col.length})</span></div>`;
+
+    col.forEach(t => {
+      const proj = state.projects.find(p => p.id === t.project);
+      const hasDetail = t.description || t.aiPrompt;
+      html += `
+      <div class="list-item" onclick="editTaskModal('${t.id}')">
+        <button class="task-checkbox ${t.status}" onclick="event.stopPropagation();cycleTaskStatus('${t.id}')" title="Chuyển trạng thái">${t.status === 'done' ? '✓' : t.status === 'doing' ? '◉' : ''}</button>
+        <div>
+          <div class="list-item-title ${t.status}">${esc(t.title)}</div>
+          ${hasDetail ? `<button class="task-detail-toggle" onclick="event.stopPropagation();toggleDetail(this)">▸ Chi tiết</button>
+          <div class="task-detail" style="display:none">
+            ${t.description ? `<div class="task-detail-section"><div class="task-detail-label">📋 Hướng dẫn</div><div class="task-detail-content">${esc(t.description)}</div></div>` : ''}
+            ${t.aiPrompt ? `<div class="task-detail-section"><div class="task-detail-label">🤖 AI Prompt</div><div class="task-detail-content prompt">${esc(t.aiPrompt)}</div></div>` : ''}
+          </div>` : ''}
+        </div>
+        <div class="list-item-cell">${proj ? esc(proj.name) : '—'}</div>
+        <div class="list-item-cell">${t.assignee ? '👤 ' + esc(t.assignee) : '—'}</div>
+        <div class="list-item-cell">${t.deadline || '—'}</div>
+        <div class="list-item-cell"><span class="badge badge-${t.priority || 'medium'}">${t.priority || 'medium'}</span></div>
+      </div>`;
+    });
+    html += '</div>';
+  });
+
+  container.innerHTML = html;
 }
 
 async function moveTask(id, newStatus) {
   await updateRecord('tasks', id, { status: newStatus });
-  renderKanban();
+  renderTaskBoard();
   if (state.currentProject) renderProjectTasks();
 }
 
@@ -474,6 +588,8 @@ function addTaskModal() {
     <div class="form-group"><label class="form-label">Người phụ trách</label><select class="form-select" id="f_taskAssignee"><option value="">-- Chọn --</option>${staffOpts}</select></div>
     <div class="form-group"><label class="form-label">Ưu tiên</label><select class="form-select" id="f_taskPriority"><option value="medium">Medium</option><option value="high">High</option><option value="low">Low</option></select></div>
     <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="f_taskDeadline"></div>
+    <div class="form-group"><label class="form-label">📋 Hướng dẫn chi tiết</label><textarea class="form-textarea" id="f_taskDesc" rows="3" placeholder="Hướng dẫn cách thực hiện task này..."></textarea></div>
+    <div class="form-group"><label class="form-label">🤖 Prompt cho AI hỗ trợ</label><textarea class="form-textarea" id="f_taskPrompt" rows="3" placeholder="VD: Hãy viết 3 mẫu caption quảng cáo combo phòng ngủ cho đối tượng vợ chồng trẻ..."></textarea></div>
     <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="createTask()">Thêm</button></div>
   `);
 }
@@ -488,11 +604,13 @@ async function createTask() {
     priority: document.getElementById('f_taskPriority').value,
     status: 'todo',
     deadline: document.getElementById('f_taskDeadline').value,
+    description: document.getElementById('f_taskDesc').value.trim(),
+    aiPrompt: document.getElementById('f_taskPrompt').value.trim(),
     source: 'manual'
   });
   closeModal();
   renderProjectTasks();
-  renderKanban();
+  renderTaskBoard();
 }
 
 function editTaskModal(id) {
@@ -505,7 +623,9 @@ function editTaskModal(id) {
     <div class="form-group"><label class="form-label">Ưu tiên</label><select class="form-select" id="f_taskPriority"><option value="medium" ${t.priority === 'medium' ? 'selected' : ''}>Medium</option><option value="high" ${t.priority === 'high' ? 'selected' : ''}>High</option><option value="low" ${t.priority === 'low' ? 'selected' : ''}>Low</option></select></div>
     <div class="form-group"><label class="form-label">Trạng thái</label><select class="form-select" id="f_taskStatus"><option value="todo" ${t.status === 'todo' ? 'selected' : ''}>To Do</option><option value="doing" ${t.status === 'doing' ? 'selected' : ''}>Doing</option><option value="done" ${t.status === 'done' ? 'selected' : ''}>Done</option></select></div>
     <div class="form-group"><label class="form-label">Deadline</label><input class="form-input" type="date" id="f_taskDeadline" value="${t.deadline || ''}"></div>
-    <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-primary" onclick="saveTask('${id}')">Lưu</button></div>
+    <div class="form-group"><label class="form-label">📋 Hướng dẫn chi tiết</label><textarea class="form-textarea" id="f_taskDesc" rows="3" placeholder="Hướng dẫn cách thực hiện...">${esc(t.description || '')}</textarea></div>
+    <div class="form-group"><label class="form-label">🤖 Prompt cho AI hỗ trợ</label><textarea class="form-textarea" id="f_taskPrompt" rows="3" placeholder="Prompt gợi ý cho AI...">${esc(t.aiPrompt || '')}</textarea></div>
+    <div class="form-actions"><button class="btn btn-outline" onclick="closeModal()">Hủy</button><button class="btn btn-danger" onclick="confirmDeleteTask('${id}')">🗑️ Xóa</button><button class="btn btn-primary" onclick="saveTask('${id}')">Lưu</button></div>
   `);
 }
 
@@ -516,10 +636,12 @@ async function saveTask(id) {
     priority: document.getElementById('f_taskPriority').value,
     status: document.getElementById('f_taskStatus').value,
     deadline: document.getElementById('f_taskDeadline').value,
+    description: document.getElementById('f_taskDesc').value.trim(),
+    aiPrompt: document.getElementById('f_taskPrompt').value.trim(),
   });
   closeModal();
   renderProjectTasks();
-  renderKanban();
+  renderTaskBoard();
 }
 
 async function confirmDeleteTask(id) {
@@ -742,8 +864,22 @@ function setupEvents() {
   document.getElementById('filterStatus').addEventListener('change', renderDashboard);
 
   // Kanban filters
-  document.getElementById('boardFilterProject')?.addEventListener('change', renderKanban);
-  document.getElementById('boardFilterAssignee')?.addEventListener('change', renderKanban);
+  document.getElementById('boardFilterProject')?.addEventListener('change', renderTaskBoard);
+  document.getElementById('boardFilterAssignee')?.addEventListener('change', renderTaskBoard);
+
+  // View toggle
+  document.getElementById('viewKanban')?.addEventListener('click', () => {
+    state.boardView = 'kanban';
+    document.getElementById('viewKanban').classList.add('active');
+    document.getElementById('viewList').classList.remove('active');
+    renderTaskBoard();
+  });
+  document.getElementById('viewList')?.addEventListener('click', () => {
+    state.boardView = 'list';
+    document.getElementById('viewList').classList.add('active');
+    document.getElementById('viewKanban').classList.remove('active');
+    renderTaskBoard();
+  });
 
   // Modal close
   document.getElementById('modalClose').addEventListener('click', closeModal);

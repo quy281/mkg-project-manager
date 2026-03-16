@@ -849,6 +849,177 @@ body {
   margin-top: 10px;
 }
 
+/* ===================== BOARD TOOLBAR ===================== */
+.board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+}
+
+.view-toggle .btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Drag and drop */
+.kanban-card[draggable="true"] {
+  cursor: grab;
+}
+
+.kanban-card.dragging {
+  opacity: 0.4;
+  transform: rotate(2deg);
+}
+
+.kanban-col.drag-over {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+}
+
+/* ===================== LIST VIEW ===================== */
+.list-group {
+  margin-bottom: 24px;
+}
+
+.list-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 10px;
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.list-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  display: grid;
+  grid-template-columns: 28px 1fr 100px 100px 100px 80px;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+  transition: all var(--transition);
+  cursor: pointer;
+  margin-bottom: 6px;
+}
+
+.list-item:hover {
+  border-color: var(--accent);
+  background: var(--bg-card-hover);
+}
+
+.list-item-title {
+  font-weight: 600;
+}
+
+.list-item-title.done {
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+.list-item-cell {
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.list-header-row {
+  display: grid;
+  grid-template-columns: 28px 1fr 100px 100px 100px 80px;
+  gap: 10px;
+  padding: 8px 16px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* ===================== TASK DETAIL PANEL ===================== */
+.task-detail {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.task-detail-section {
+  margin-bottom: 10px;
+}
+
+.task-detail-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.task-detail-content {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  background: var(--bg-primary);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  white-space: pre-wrap;
+}
+
+.task-detail-content.prompt {
+  color: var(--accent-light);
+  font-family: 'Fira Code', monospace;
+  font-size: 0.75rem;
+}
+
+.task-detail-toggle {
+  font-size: 0.72rem;
+  color: var(--accent-light);
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 4px 0;
+  font-family: var(--font);
+}
+
+.task-detail-toggle:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .list-item {
+    grid-template-columns: 28px 1fr;
+  }
+
+  .list-item-cell {
+    display: none;
+  }
+
+  .list-header-row {
+    display: none;
+  }
+
+  .board-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
 /* ===================== STAFF ===================== */
 .staff-grid {
   display: grid;
